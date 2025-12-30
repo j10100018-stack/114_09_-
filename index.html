@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>末日倖存者 v13.0 - 終極完全版</title>
+    <style>
+        :root { 
+            --hp: #ff4757; --hg: #ffa502; --wt: #1e90ff; 
+            --accent: #2ed573; --gold: #ffd32a; --boss: #a55eea;
+            --text-main: #ecf0f1; --text-dim: #bdc3c7;
+        }
+        body { 
+            margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; 
+            display: flex; justify-content: center; align-items: center; 
+            min-height: 100vh; user-select: none; overflow: hidden;
+            background-color: #000;
+            /* 背景圖片 */
+            background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.8)), 
+                              url('https://images.unsplash.com/photo-1542256851-e1293373eb5d?q=80&w=2560&auto=format&fit=crop');
+            background-size: cover; background-position: center;
+            color: var(--text-main);
+        }
+        
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px; pointer-events: none; z-index: 999; opacity: 0.7;
+        }
+
+        /* 毛玻璃主容器 */
+        .game-box { 
+            width: 100%; max-width: 520px; 
+            background: rgba(20, 20, 20, 0.85); 
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border-radius: 12px; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.8); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            position: relative; overflow: hidden; transition: 0.5s;
+        }
+
+        /* 頂部存檔條 */
+        .save-bar {
+            background: rgba(0,0,0,0.6); padding: 8px 15px; display: flex; 
+            justify-content: space-between; align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 12px;
+        }
+        .save-btn {
+            background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);
+            padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: 0.2s;
+        }
+        .save-btn:hover { background: var(--accent); color: #000; }
+
+        /* 特效層 */
+        .fx-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; overflow: hidden; }
+        .fx-slash { position: absolute; width: 140px; height: 140px; border-bottom: 4px solid #fff; filter: blur(1px); box-shadow: 0 0 10px rgba(255, 255, 255, 0.8); opacity: 0; transform: rotate(-45deg) scale(0.5); }
+        .play-slash { animation: anim-slash 0.2s ease-out; }
+        @keyframes anim-slash { 0% { opacity: 0; transform: translate(-20px, -20px) rotate(var(--r)) scale(0.5); } 40% { opacity: 1; transform: translate(0, 0) rotate(var(--r)) scale(1.2); } 100% { opacity: 0; transform: translate(20px, 20px) rotate(var(--r)) scale(1.4); } }
+        
+        .dmg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; pointer-events: none; z-index: 40; }
+        .play-dmg { animation: flash-red 0.3s ease-out; }
+        @keyframes flash-red { 0% { opacity: 0.3; } 100% { opacity: 0; } }
+
+        /* UI 組件 */
+        .scene-header { padding: 20px; text-align: center; position: relative; z-index: 2; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .scene-title { font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .scene-tag { font-size: 10px; color: var(--accent); letter-spacing: 1px; display: block; margin-top: 4px; }
+        .trait-badge { background: var(--gold); color: #000; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: bold; position: absolute; top: 15px; right: 15px; box-shadow: 0 0 10px rgba(255, 211, 42, 0.4); }
+
+        .equip-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 15px; background: rgba(255,255,255,0.02); }
+        .equip-slot { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; display: flex; align-items: center; gap: 10px; transition: 0.3s; }
+        .equip-slot.updated { border-color: var(--gold); box-shadow: 0 0 10px var(--gold); }
+        .e-icon { font-size: 24px; background: rgba(0,0,0,0.5); width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; border-radius: 6px; }
+
+        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); background: rgba(0,0,0,0.2); }
+        .dash-item { padding: 10px 5px; text-align: center; border-right: 1px solid rgba(255,255,255,0.1); }
+        .dash-val { font-size: 16px; font-weight: bold; color: #fff; }
+        .dash-lbl { font-size: 10px; color: var(--text-dim); }
+
+        .ap-bar { padding: 8px; text-align: center; display: flex; justify-content: center; gap: 6px; }
+        .ap-dot { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 5px var(--accent); transition: 0.3s; }
+        .ap-off { background: #444; box-shadow: none; opacity: 0.3; }
+
+        .bars-container { padding: 15px; }
+        .bar-wrap { display: flex; align-items: center; margin-bottom: 8px; font-size: 12px; }
+        .bar-track { flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin: 0 10px; }
+        .bar-fill { height: 100%; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        .bag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 15px 15px; }
+        .bag-item { background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.1); font-size: 13px; }
+        .bag-btn { background: transparent; border: 1px solid #555; color: #ddd; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .bag-btn:hover { background: #fff; color: #000; }
+
+        #combat-panel { margin: 0 15px 15px; padding: 15px; border-radius: 8px; background: linear-gradient(135deg, rgba(42,10,10,0.8), rgba(26,5,5,0.9)); border: 1px solid var(--hp); display: none; text-align: center; animation: shake-in 0.3s; }
+        @keyframes shake-in { 0% { transform: scale(0.95); } 100% { transform: scale(1); } }
+        .boss-mode { background: linear-gradient(135deg, #2c0a3a, #150520) !important; border-color: var(--boss) !important; }
+        .enemy-icon { font-size: 50px; display: block; margin-bottom: 10px; animation: float 3s infinite ease-in-out; filter: drop-shadow(0 0 10px rgba(255,0,0,0.4)); }
+        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+        .log-box { height: 100px; overflow-y: auto; margin: 0 15px 15px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 6px; font-size: 12px; color: var(--text-dim); border: 1px solid rgba(255,255,255,0.1); font-family: monospace; }
+        .log-new { color: #fff; animation: fade-in 0.3s; margin-bottom: 4px; }
+        @keyframes fade-in { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
+
+        .actions-grid { padding: 0 15px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-act { padding: 15px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; color: #fff; cursor: pointer; position: relative; overflow: hidden; transition: 0.2s; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(4px); }
+        .btn-act:hover:not(:disabled) { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+        .btn-act:active:not(:disabled) { transform: translateY(1px); }
+        
+        .c-exp { background: linear-gradient(to right, #2980b9, #3498db); grid-column: span 2; border:none; }
+        .c-atk { background: linear-gradient(to right, #c0392b, #e74c3c); width: 100%; margin-top: 10px; border:none; box-shadow: 0 4px 15px rgba(192, 57, 43, 0.4); }
+        .c-rest { background: #34495e; grid-column: span 2; display: none; }
+        .c-restart { background: var(--accent); grid-column: span 2; display: none; color:#000; }
+        .c-book { background: rgba(255,255,255,0.05); color: #aaa; font-size: 12px; padding: 10px; }
+
+        .float-txt { position: absolute; font-weight: 900; font-size: 24px; pointer-events: none; animation: floatUp 0.8s forwards; z-index: 100; text-shadow: 2px 2px 0 #000; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(0.8); } 100% { opacity: 0; transform: translateY(-50px) scale(1.2); } }
+        .shake { animation: shake 0.4s; }
+        @keyframes shake { 0%,100% {transform:translateX(0)} 25% {transform:translateX(-4px)} 75% {transform:translateX(4px)} }
+
+        /* Modal (Glassy) */
+        .modal { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index:200; display:none; flex-direction:column; padding:20px; box-sizing:border-box; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .modal-header { display:flex; justify-content:space-between; color:#fff; border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:10px; margin-bottom:10px; }
+        .gallery-content { flex:1; overflow-y:auto; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .g-item { background:rgba(255,255,255,0.05); padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:6px; font-size:12px; display:flex; gap:10px; align-items:center; }
+    </style>
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+<div class="game-box" id="gameUI">
+    <div class="save-bar">
+        <span>📡 訊號：<span id="save-status" style="color:var(--accent)">同步中</span></span>
+        <div>
+            <button class="save-btn" onclick="saveGame()">💾 存檔</button>
+            <button class="save-btn" style="background:rgba(231, 76, 60, 0.2); border-color:#e74c3c" onclick="confirmReset()">⛔ 重置</button>
+        </div>
+    </div>
+
+    <div class="fx-layer">
+        <div id="fxContainer"></div>
+        <div id="dmgFX" class="dmg-overlay"></div>
+    </div>
+    
+    <div id="galleryModal" class="modal">
+        <div class="modal-header"><b>📖 生存圖鑑</b> <button style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer" onclick="toggleGallery(false)">×</button></div>
+        <div style="display:flex; gap:5px; margin-bottom:10px">
+            <button class="bag-btn" style="flex:1" onclick="switchTab('items')">物資</button>
+            <button class="bag-btn" style="flex:1" onclick="switchTab('wep')">武器</button>
+            <button class="bag-btn" style="flex:1" onclick="switchTab('arm')">防具</button>
+        </div>
+        <div id="galleryContent" class="gallery-content"></div>
+    </div>
+
+    <div class="scene-header" id="sceneHeader">
+        <div class="scene-title" id="s-name">倖存者營地</div>
+        <span class="scene-tag" id="s-desc">SAFE ZONE</span>
+        <div id="traitBadge" class="trait-badge" style="display:none"></div>
+    </div>
+
+    <div class="equip-container">
+        <div class="equip-slot" id="slot-wep">
+            <div class="e-icon" id="wep-icon">✊</div>
+            <div><span class="e-name" id="wep-name">拳頭</span><span class="e-stat" id="wep-stat">ATK +0</span></div>
+        </div>
+        <div class="equip-slot" id="slot-arm">
+            <div class="e-icon" id="arm-icon">👕</div>
+            <div><span class="e-name" id="arm-name">破布</span><span class="e-stat" id="arm-stat">DEF +0</span></div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="dash-item"><span class="dash-val" id="d-day">1</span><span class="dash-lbl">DAY</span></div>
+        <div class="dash-item"><span class="dash-val" id="d-atk">50</span><span class="dash-lbl">ATK</span></div>
+        <div class="dash-item"><span class="dash-val" id="d-def">30</span><span class="dash-lbl">DEF</span></div>
+        <div class="dash-item"><span class="dash-val" id="d-rec">0</span><span class="dash-lbl">MAX</span></div>
+    </div>
+
+    <div class="ap-bar" id="ap-bar"></div>
+
+    <div class="bars-container">
+        <div class="bar-wrap">❤️<div class="bar-track"><div id="bar-hp" class="bar-fill" style="background:var(--hp); width:100%"></div></div><span id="txt-hp">100</span></div>
+        <div class="bar-wrap">🍖<div class="bar-track"><div id="bar-hg" class="bar-fill" style="background:var(--hg); width:100%"></div></div></div>
+        <div class="bar-wrap">💧<div class="bar-track"><div id="bar-wt" class="bar-fill" style="background:var(--wt); width:100%"></div></div></div>
+    </div>
+
+    <div class="bag-grid">
+        <div class="bag-item"><span>🥫 罐頭 <b id="n-food" style="color:var(--gold)">0</b></span> <button class="bag-btn" onclick="use('food')">吃</button></div>
+        <div class="bag-item"><span>🥤 純水 <b id="n-water" style="color:var(--wt)">0</b></span> <button class="bag-btn" onclick="use('water')">喝</button></div>
+        <div class="bag-item"><span>🩹 藥包 <b id="n-med" style="color:var(--hp)">0</b></span> <button class="bag-btn" onclick="use('med')">治</button></div>
+        <div class="bag-item"><span>⚙️ 零件 <b id="n-part" style="color:#aaa">0</b></span> <button class="bag-btn" onclick="upgrade()">強</button></div>
+    </div>
+
+    <div id="combat-panel">
+        <div class="enemy-icon" id="e-icon">🧟</div>
+        <h3 style="margin:5px 0; color:#fff" id="e-name">喪屍</h3>
+        <div class="bar-track" style="background:rgba(0,0,0,0.5); height:8px"><div id="e-bar" class="bar-fill" style="background:var(--hp); width:100%"></div></div>
+        <button id="atkBtn" class="btn-act c-atk" onclick="attack()">⚔️ 殲滅 (ATTACK)</button>
+    </div>
+
+    <div class="log-box" id="log"></div>
+
+    <div class="actions-grid">
+        <button id="btn-exp" class="btn-act c-exp" onclick="explore()">🗺️ 前往探索 (高機率物資)</button>
+        <button id="btn-book" class="btn-act c-book" onclick="toggleGallery(true)">📖 生存圖鑑</button>
+        <button id="btn-rest" class="btn-act c-rest" onclick="rest()">💤 休息過夜 (Save)</button>
+        <button id="btn-re" class="btn-act c-restart" onclick="fullReset()">🔄 重新輪迴 (Reset)</button>
+    </div>
+</div>
+
+<script>
+    // --- 遊戲資料 ---
+    const Traits = [
+        { n: "普通人", d: "無特殊能力", atk:0, def:0, loot:0 },
+        { n: "拳擊手", d: "初始攻擊+5", atk:5, def:0, loot:0 },
+        { n: "拾荒者", d: "物資發現率UP", atk:0, def:0, loot:0.3 },
+        { n: "鐵壁", d: "初始防禦+2", atk:0, def:2, loot:0 },
+        { n: "幸運兒", d: "容易暴擊", atk:0, def:0, loot:0, crit: 0.25 }
+    ];
+
+    // 預設遊戲狀態 (強化版)
+    const DEFAULT_GAME = {
+        hp: 100, maxHp: 100, hg: 100, wt: 100,
+        food: 10, water: 10, med: 5, part: 0, // 初始物資增加
+        baseAtk: 50, baseDef: 30, // 初始數值大幅強化
+        day: 1, ap: 5, night: false, trait: null,
+        record: localStorage.getItem('sv13_rec') || 0,
+        equip: { wep: { n: "赤手空拳", v: 0, i: "✊", fx: "smash" }, arm: { n: "破舊襯衫", v: 0, i: "👕" } }
+    };
+
+    let Game = JSON.parse(JSON.stringify(DEFAULT_GAME));
+
+    const GearDB = {
+        wep: [
+            { n: "戰術小刀", v: 10, i: "🔪", fx: "slash", minDay: 0 },
+            { n: "金屬球棒", v: 18, i: "🏏", fx: "smash", minDay: 2 },
+            { n: "消防斧", v: 30, i: "🪓", fx: "slash", minDay: 5 },
+            { n: "沙漠之鷹", v: 50, i: "🔫", fx: "shoot", minDay: 10 },
+            { n: "戰術散彈", v: 70, i: "🥖", fx: "shoot", minDay: 15 },
+            { n: "電漿切割", v: 90, i: "🪚", fx: "slash", minDay: 20 },
+            { n: "光劍", v: 150, i: "⚡", fx: "slash", minDay: 30 }
+        ],
+        arm: [
+            { n: "皮夾克", v: 5, i: "🧥", minDay: 0 },
+            { n: "鎮暴護具", v: 12, i: "🥋", minDay: 3 },
+            { n: "防彈背心", v: 25, i: "🦺", minDay: 8 },
+            { n: "外骨骼", v: 40, i: "🛡️", minDay: 15 },
+            { n: "動力裝甲", v: 80, i: "🤖", minDay: 25 }
+        ],
+        items: [
+            { n: "罐頭", i: "🥫" }, { n: "水", i: "🥤" }, { n: "藥包", i: "🩹" }, { n: "零件", i: "⚙️" }
+        ]
+    };
+
+    const Scenes = [
+        { n: "廢棄超市", color: "#e67e22" }, { n: "市區醫院", color: "#3498db" },
+        { n: "軍事哨站", color: "#27ae60" }, { n: "荒野公路", color: "#7f8c8d" }
+    ];
+
+    let enemy = null;
+    const UI = document.getElementById('gameUI');
+    const Log = document.getElementById('log');
+
+    // --- 存讀檔系統 ---
+    function saveGame() {
+        localStorage.setItem('survivor_v13_save', JSON.stringify(Game));
+        const s = document.getElementById('save-status');
+        s.textContent = "已備份"; s.style.color = "#2ecc71";
+        setTimeout(()=> { s.textContent = "監控中"; s.style.color = "#2ed573"; }, 2000);
+    }
+
+    function loadGame() {
+        const saved = localStorage.getItem('survivor_v13_save');
+        if(saved) {
+            Game = JSON.parse(saved);
+            addLog("系統：記憶體讀取成功。歡迎回來。", "#2ecc71");
+            return true;
+        }
+        return false;
+    }
+
+    function confirmReset() { if(confirm("確定要刪除存檔並重置嗎？")) fullReset(); }
+    function fullReset() { localStorage.removeItem('survivor_v13_save'); location.reload(); }
+
+    // --- 初始化 ---
+    function init() {
+        if(!loadGame()) {
+            // 新遊戲初始化
+            Game.trait = Traits[Math.floor(Math.random() * Traits.length)];
+            Game.baseAtk += Game.trait.atk;
+            Game.baseDef += Game.trait.def;
+            addLog(`倖存者甦醒... 獲得天賦 [${Game.trait.n}]`, "#ffd32a");
+        }
+        
+        const badge = document.getElementById('traitBadge');
+        badge.textContent = `天賦: ${Game.trait.n}`;
+        badge.style.display = 'block';
+        
+        updateUI();
+    }
+
+    function getTotalAtk() { return Game.baseAtk + Game.equip.wep.v; }
+    function getTotalDef() { return Game.baseDef + Game.equip.arm.v; }
+
+    function updateUI() {
+        setText('d-day', Game.day);
+        setText('d-atk', getTotalAtk());
+        setText('d-def', getTotalDef());
+        setText('d-rec', Game.record);
+        setText('txt-hp', Math.floor(Game.hp));
+        
+        setText('wep-name', Game.equip.wep.n);
+        setText('wep-stat', `ATK +${Game.equip.wep.v}`);
+        setText('wep-icon', Game.equip.wep.i);
+        setText('arm-name', Game.equip.arm.n);
+        setText('arm-stat', `DEF +${Game.equip.arm.v}`);
+        setText('arm-icon', Game.equip.arm.i);
+
+        setText('n-food', Game.food); setText('n-water', Game.water);
+        setText('n-med', Game.med); setText('n-part', Game.part);
+
+        setBar('bar-hp', Game.hp, Game.maxHp);
+        setBar('bar-hg', Game.hg, 100);
+        setBar('bar-wt', Game.wt, 100);
+
+        let apHtml = '';
+        for(let i=0; i<5; i++) apHtml += `<div class="ap-dot ${i>=Game.ap?'ap-off':''}"></div>`;
+        document.getElementById('ap-bar').innerHTML = apHtml;
+
+        if(Game.night) {
+            document.getElementById('sceneHeader').style.opacity = "0.5";
+            toggleDisplay('btn-exp', false);
+            toggleDisplay('btn-rest', true);
+        } else {
+            document.getElementById('sceneHeader').style.opacity = "1";
+            toggleDisplay('btn-exp', true);
+            toggleDisplay('btn-rest', false);
+        }
+
+        if(enemy) {
+            document.getElementById('combat-panel').style.display = 'block';
+            setText('e-name', enemy.name);
+            setText('e-icon', enemy.icon);
+            setBar('e-bar', enemy.hp, enemy.maxHp);
+            document.getElementById('combat-panel').className = enemy.isBoss ? 'boss-mode' : '';
+            toggleDisplay('btn-exp', false);
+            toggleDisplay('btn-book', false);
+        } else {
+            document.getElementById('combat-panel').style.display = 'none';
+            if(!Game.night) toggleDisplay('btn-exp', true);
+            document.getElementById('btn-exp').disabled = (Game.ap <= 0);
+            toggleDisplay('btn-book', true);
+        }
+    }
+
+    // --- 修改後的探索邏輯：高掉落率 ---
+    function explore() {
+        if(!checkAP()) return;
+        cost(5, 5); // 降低消耗
+
+        if(Game.day % 10 === 0 && !enemy) { spawnBoss(); return; }
+
+        let s = Scenes[Math.floor(Math.random() * Scenes.length)];
+        setText('s-name', s.n);
+        document.getElementById('sceneHeader').style.background = `linear-gradient(180deg, ${s.color}66, transparent)`;
+
+        // 獨立計算掉落，增加機率
+        let lootBonus = Game.trait.loot || 0;
+        let foundLoot = false;
+        
+        // 60% 機率獲得食物
+        if(Math.random() < 0.6 + lootBonus) { 
+            Game.food++; floatTxt("+罐頭", "#f1c40f", "30%", "40%"); foundLoot=true; 
+        }
+        // 60% 機率獲得水
+        if(Math.random() < 0.6 + lootBonus) { 
+            Game.water++; floatTxt("+水", "#3498db", "70%", "40%"); foundLoot=true; 
+        }
+
+        if(foundLoot) addLog("搜索：發現了一些補給品。", "#2ecc71");
+
+        let roll = Math.random();
+        if(roll < 0.3) { // 降低遇敵率 (30%)
+            spawnEnemy();
+        } else if (roll < 0.6) { // 30% 機率找裝備/零件
+            if(Math.random() < 0.5) findGear();
+            else { Game.part++; addLog("發現可用零件。", "#aaa"); floatTxt("+零件", "#ccc"); }
+        } else {
+            if(!foundLoot) addLog("這裡似乎沒有其他東西了...", "#777");
+        }
+        
+        checkNight(); checkLife(); updateUI(); saveGame();
+    }
+
+    function findGear() {
+        let isWep = Math.random() < 0.6;
+        let list = isWep ? GearDB.wep : GearDB.arm;
+        let valid = list.filter(i => Game.day >= i.minDay);
+        let item = valid[Math.floor(Math.random() * valid.length)];
+        let current = isWep ? Game.equip.wep : Game.equip.arm;
+        
+        if (item.v > current.v) {
+            if(isWep) Game.equip.wep = item; else Game.equip.arm = item;
+            floatTxt("裝備升級!", "#00d2d3");
+            addLog(`✨ 獲得 <b>${item.i} ${item.n}</b>`, "#00d2d3");
+            let slotId = isWep ? 'slot-wep' : 'slot-arm';
+            document.getElementById(slotId).classList.add('updated');
+            setTimeout(()=>document.getElementById(slotId).classList.remove('updated'), 500);
+        } else {
+            Game.part++;
+            addLog(`發現 ${item.n}，分解為零件。`, "#7f8c8d");
+        }
+    }
+
+    function spawnEnemy() {
+        let scale = 1 + (Game.day * 0.15);
+        enemy = {
+            name: "遊蕩喪屍", icon: "🧟",
+            hp: Math.floor(40 * scale), maxHp: Math.floor(40 * scale),
+            atk: Math.floor(10 * scale), isBoss: false
+        };
+        addLog("⚠️ 遭遇敵人！", "#e74c3c");
+    }
+
+    function spawnBoss() {
+        let scale = 1 + (Game.day * 0.25);
+        enemy = {
+            name: `變異體 TYPE-${Game.day}`, icon: "👹",
+            hp: Math.floor(150 * scale), maxHp: Math.floor(150 * scale),
+            atk: Math.floor(25 * scale), isBoss: true
+        };
+        addLog(`☠️ BOSS 降臨！`, "#8e44ad");
+        UI.classList.add('shake');
+        setTimeout(()=>UI.classList.remove('shake'), 500);
+    }
+
+    function playFX(type) {
+        const c = document.getElementById('fxContainer');
+        const el = document.createElement('div');
+        el.style.setProperty('--r', (Math.random()*90 - 45) + 'deg');
+        el.style.left = `calc(50% + ${Math.random()*40-20}px)`;
+        el.style.top = `calc(40% + ${Math.random()*40-20}px)`;
+        el.className = type === 'slash' ? 'fx-slash play-slash' : (type === 'shoot' ? 'fx-shoot play-shoot' : 'fx-smash play-smash');
+        c.appendChild(el);
+        setTimeout(()=>el.remove(), 400);
+    }
+
+    function attack() {
+        document.getElementById('atkBtn').disabled = true;
+        playFX(Game.equip.wep.fx || 'smash');
+
+        let totalAtk = getTotalAtk();
+        let critRate = 0.1 + (Game.trait.crit || 0);
+        let crit = Math.random() < critRate;
+        let dmg = totalAtk + Math.floor(Math.random() * 8); // 增加傷害浮動
+        if(crit) dmg = Math.floor(dmg * 1.5);
+        
+        const eIcon = document.getElementById('e-icon');
+        eIcon.classList.add('enemy-hit-anim');
+
+        enemy.hp -= dmg;
+        setTimeout(() => {
+            floatTxt(`-${dmg}`, "#e74c3c", "70%", "40%");
+            if(crit) floatTxt("CRIT!", "#f1c40f", "70%", "20%");
+            eIcon.classList.remove('enemy-hit-anim');
+            
+            if (enemy.hp <= 0) {
+                victory();
+                document.getElementById('atkBtn').disabled = false;
+            } else {
+                setTimeout(enemyTurn, 300);
+            }
+            updateUI();
+        }, 200);
+    }
+
+    function enemyTurn() {
+        if(!enemy) return;
+        const eIcon = document.getElementById('e-icon');
+        eIcon.classList.add('enemy-atk-anim');
+        
+        let eDmg = enemy.isBoss ? enemy.atk * 1.5 : enemy.atk;
+        if(Game.night) eDmg *= 1.5;
+        
+        let dodgeChance = Math.min(0.4, getTotalDef() * 0.01); // 提高閃避上限
+        let isDodge = Math.random() < dodgeChance;
+
+        setTimeout(() => {
+            if(isDodge) {
+                floatTxt("MISS", "#2ecc71");
+                addLog("✨ 極限閃避！", "#2ecc71");
+            } else {
+                let def = getTotalDef();
+                let take = Math.max(1, Math.floor(eDmg - (def * 0.5)));
+                Game.hp -= take;
+                document.getElementById('dmgFX').classList.add('play-dmg');
+                floatTxt(`-${take}`, "#fff", "20%", "40%");
+                
+                // 受傷震動
+                const box = document.getElementById('gameUI');
+                box.style.animation = 'none';
+                void box.offsetWidth; 
+                box.style.animation = 'shake 0.4s';
+            }
+            
+            setTimeout(() => {
+                document.getElementById('dmgFX').classList.remove('play-dmg');
+                eIcon.classList.remove('enemy-atk-anim');
+                document.getElementById('atkBtn').disabled = false;
+                checkLife();
+                updateUI();
+                saveGame(); // 戰鬥每回合存檔
+            }, 300);
+        }, 200);
+    }
+
+    function victory() {
+        if (enemy.isBoss) {
+            floatTxt("BOSS擊殺!", "#8e44ad");
+            addLog("🏆 擊敗變異體！戰利品豐厚！", "#8e44ad");
+            Game.baseAtk += 5; Game.food += 3; Game.med += 2; Game.part += 2;
+        } else {
+            addLog("威脅已清除。", "#2ecc71");
+            Game.food++; Game.water++; // 戰鬥必掉物資
+            if(Math.random() < 0.5) { Game.part++; floatTxt("+零件", "#ccc"); }
+        }
+        enemy = null;
+        checkNight(); updateUI(); saveGame();
+    }
+
+    function use(t) {
+        if(Game[t] <= 0) return;
+        Game[t]--;
+        if(t==='food') { Game.hg = Math.min(100, Game.hg+50); Game.hp = Math.min(Game.maxHp, Game.hp+10); floatTxt("+飽食", "#f39c12"); }
+        if(t==='water') { Game.wt = Math.min(100, Game.wt+50); floatTxt("+水分", "#3498db"); }
+        if(t==='med') { Game.hp = Math.min(Game.maxHp, Game.hp+60); floatTxt("+生命", "#e74c3c"); }
+        updateUI(); saveGame();
+    }
+
+    function upgrade() {
+        if(Game.part >= 3) {
+            Game.part -= 3;
+            Game.baseAtk += 3; Game.baseDef += 2; // 強化幅度提升
+            floatTxt("LEVEL UP", "#2ecc71");
+            addLog("裝備強化完成。", "#2ecc71");
+        } else addLog("需要 3 個零件。", "#777");
+        updateUI(); saveGame();
+    }
+
+    function rest() {
+        Game.day++; Game.ap = 5; Game.night = false;
+        cost(15, 20);
+        addLog(`🌅 第 ${Game.day} 天。存檔完成。`, "#fff");
+        if(Game.hg > 0 && Game.wt > 0) Game.hp = Math.min(Game.maxHp, Game.hp + 15);
+        checkLife(); updateUI(); saveGame();
+    }
+
+    function toggleGallery(show) { document.getElementById('galleryModal').style.display = show ? 'flex' : 'none'; if(show) switchTab('items'); }
+    function switchTab(type) {
+        document.getElementById('galleryContent').innerHTML = '';
+        let list = type==='items'?GearDB.items:(type==='wep'?GearDB.wep:GearDB.arm);
+        list.forEach(i => {
+            const d = document.createElement('div');
+            d.className='g-item';
+            d.innerHTML = `<div style="font-size:24px">${i.i}</div><div><b style="color:#fff">${i.n}</b><br><span style="color:#888">${i.v ? (type==='wep'?'ATK+':'DEF+')+i.v : '消耗品'}</span></div>`;
+            document.getElementById('galleryContent').appendChild(d);
+        });
+    }
+
+    function checkAP() { if(Game.ap > 0) { Game.ap--; return true; } return false; }
+    function checkNight() { if(Game.ap <= 0 && !enemy) { Game.night = true; addLog("🌑 夜幕降臨...", "#9b59b6"); } }
+    function cost(h,w) { Game.hg-=h; Game.wt-=w; }
+    function checkLife() {
+        if(Game.hg<=0) Game.hp-=10; if(Game.wt<=0) Game.hp-=15;
+        if(Game.hp<=0) {
+            Game.hp=0; updateUI();
+            addLog("💀 倖存者死亡。存檔清除。", "#c0392b");
+            if(Game.day > Game.record) localStorage.setItem('sv13_rec', Game.day);
+            localStorage.removeItem('survivor_v13_save');
+            document.querySelectorAll('.btn-act').forEach(b=>b.style.display='none');
+            document.getElementById('btn-re').style.display='grid';
+        }
+    }
+    function setText(id,t) { document.getElementById(id).textContent=t; }
+    function setBar(id,v,m) { document.getElementById(id).style.width=(v/m*100)+'%'; }
+    function toggleDisplay(id,s) { document.getElementById(id).style.display=s?'block':'none'; }
+    function addLog(m,c) { const d=document.createElement('div'); d.className='log-new'; d.innerHTML=`> <span style="color:${c}">${m}</span>`; Log.insertBefore(d,Log.firstChild); }
+    function floatTxt(t,c,l,tp) { const e=document.createElement('div'); e.className='float-txt'; e.textContent=t; e.style.color=c; e.style.left=l||"50%"; e.style.top=tp||"40%"; e.style.marginLeft=(Math.random()*40-20)+"px"; UI.appendChild(e); setTimeout(()=>e.remove(),800); }
+
+    init();
+</script>
+</body>
+</html>
